@@ -1,11 +1,11 @@
-# agente_veiculo.py (Versão 7 - Limpa)
 from maspy import *
 from random import uniform
 import time
+from inputs import TIMEOUT_NEGOCIACAO, TEMPO_RECARGA
 
 class AgenteVeiculoAutonomo(Agent):
 
-    def __init__(self, agent_id, bateria_inicial=100, localizacao_inicial=(0,0)):
+    def __init__(self, agent_id, bateria_inicial=100, localizacao_inicial=(0,0), preferencia="BARATO"):
         super().__init__(agent_id)
 
         self.bateria = bateria_inicial
@@ -14,7 +14,7 @@ class AgenteVeiculoAutonomo(Agent):
         self.add(Belief("bateria", self.bateria))
         self.add(Belief("localizacao", self.localizacao))
         self.add(Belief("limite_urgencia", 20))
-        self.add(Belief("preferencia", "BARATO"))
+        self.add(Belief("preferencia", preferencia))
 
         self.add(Goal("viver"))
 
@@ -42,7 +42,6 @@ class AgenteVeiculoAutonomo(Agent):
 
     @pl(gain, Goal("procurar_recarga"))
     def procurar_recarga(self, src):
-        # Adiciona a flag apenas se ela não existir
         if not self.has(Belief("negociando")):
             self.add(Belief("negociando"))
 
@@ -64,8 +63,8 @@ class AgenteVeiculoAutonomo(Agent):
 
     @pl(gain, Goal("decidir_recarga"))
     def decidir_recarga(self, src):
-        self.print("Iniciando período de espera por propostas (5s)...")
-        self.wait(5)
+        self.print(f"Iniciando período de espera por propostas ({TIMEOUT_NEGOCIACAO}s)...")
+        self.wait(TIMEOUT_NEGOCIACAO)
 
         self.print("Tempo de espera esgotado. Avaliando todas as propostas...")
 
@@ -73,7 +72,6 @@ class AgenteVeiculoAutonomo(Agent):
 
         if not propostas_beliefs:
             self.print("Nenhuma proposta recebida.")
-            # Fim da negociação (sem sucesso) - Remove a flag
             negociando_belief = self.get(Belief("negociando", Any), ck_src=False)
             if negociando_belief:
                 self.print("Removendo flag 'negociando' (sem propostas).")
@@ -104,7 +102,6 @@ class AgenteVeiculoAutonomo(Agent):
                 self.send(target_agent, tell, Belief("rejeita_proposta"))
 
         if propostas_beliefs:
-            # Remove as propostas após a decisão. Pode gerar aviso se alguma já foi removida.
             self.rm(propostas_beliefs)
 
 
@@ -112,14 +109,13 @@ class AgenteVeiculoAutonomo(Agent):
     def recarga_confirmada(self, src, confirmacao):
         self.print(f"Recarga confirmada na {src}! Detalhes: {confirmacao}")
 
-        # Fim da negociação (com sucesso) - Remove a flag
         negociando_belief = self.get(Belief("negociando", Any), ck_src=False)
         if negociando_belief:
             self.print("Removendo flag 'negociando' (sucesso).")
             self.rm(negociando_belief)
 
         self.print("Simulando recarga...")
-        time.sleep(5)
+        time.sleep(TEMPO_RECARGA)
         self.bateria = 100
         bateria_belief = self.get(Belief("bateria", Any))
         if bateria_belief:
@@ -134,7 +130,6 @@ class AgenteVeiculoAutonomo(Agent):
     def falha_recarga(self, src, razao):
         self.print(f"FALHA da {src}: {razao}. Reiniciando busca...")
         
-        # Fim da negociação (com falha) - Remove a flag
         negociando_belief = self.get(Belief("negociando", Any), ck_src=False)
         if negociando_belief:
             self.print("Removendo flag 'negociando' (falha).")
